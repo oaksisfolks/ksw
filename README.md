@@ -12,9 +12,13 @@
 
 - Relies on NetworkManager Dbus API to determine if user disconnected from VPN, allowing for complete automation (no passwords) until user input makes sense.
 
+- Ensures all external IPv4 traffic passes through the VPN tunnel. 
+
 - Allows access to local network.
 
 - Temporarily disables IPv6 and drops all outgoing IPv6 traffic.
+
+- Firewall ruleset is based off of [this ruleset on the Arch wiki](https://wiki.archlinux.org/index.php/Private_Internet_Access#Internet_%22kill_switch%22).
 
 - Provides simple fix for DNS leaks.
 
