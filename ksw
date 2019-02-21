@@ -33,7 +33,14 @@ if [[ -v ConfVars ]] ; then
 fi
 
 # Find $LOCAL_NET from $PHYSICAL_INT & confirm
-LOCAL_NET=$(ip route | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
+# Try 5 times to prevent restarts at boot.
+for i in {1..5}; do
+    LOCAL_NET=$(ip route | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
+    if [[ -n "$LOCAL_NET" ]] ; then
+        break
+    fi
+    sleep 2
+done
 
 if [[ -z "$LOCAL_NET" ]] ; then
     echo "PHYSICAL_INT set incorrectly."

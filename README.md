@@ -49,7 +49,6 @@ agnostic).
 2. Edit the kswd.service unit file (if you use iptables).
    
    ```
-   After=iptables.service ip6tables.service
    Requires=iptables.service ip6tables.service
    ```
 
