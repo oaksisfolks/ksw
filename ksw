@@ -1,0 +1,308 @@
+#!/bin/bash
+# ksw - Universal, daemonizable VPN killswitch for NetworkManager.
+VERSION=0.1.0
+# INIT
+
+# Ran as root?
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root." 
+   exit 1
+fi
+
+# Config location.
+CONFIG=/etc/ksw/ksw.conf
+
+# Make sure config exists & source
+if ! [[ -r $CONFIG ]] ; then
+    echo "Cannot read config file."
+    exit 1
+fi
+
+source $CONFIG
+
+# Make sure necessary variables are set
+for var in FIREWALL PHYSICAL_INT VPN_PORT VPN_PROTO; do
+    if ! [[ -v $var ]] ; then
+        echo "CONFIG ERROR: ${var} not set."
+        confVars="bad"
+    fi
+done
+
+if [[ -v ConfVars ]] ; then
+    exit 1
+fi
+
+# Find $LOCAL_NET from $PHYSICAL_INT & confirm
+LOCAL_NET=$(ip route | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
+
+if [[ -z "$LOCAL_NET" ]] ; then
+    echo "PHYSICAL_INT set incorrectly."
+    exit 1
+fi
+
+# Set firewall commands
+
+# iptables
+if [[ "$FIREWALL" == "iptables" ]] ; then
+    FW4="/usr/sbin/iptables"
+    FW6="/usr/sbin/ip6tables"
+    if ! [[ -x $FW4 && -x $FW6 ]] ; then
+        echo "iptables not installed."
+        exit 1
+    fi
+
+    FW4ADD="$FW4 -t filter -A OUTPUT"
+    # Does not use priority
+        FW4ADD0="$FW4ADD"
+        FW4ADD1="$FW4ADD"
+        FW4ADD9="$FW4ADD"
+    FW6ADD="$FW6 -t filter -A OUTPUT"
+
+    FW4FLUSH="$FW4 -t filter -F OUTPUT"
+    FW6FLUSH="$FW6 -t filter -F OUTPUT"
+
+# firewalld
+elif [[ "$FIREWALL" == "firewalld" ]] ; then
+    FWC="/usr/bin/firewall-cmd"
+    if ! [ -x $FWC ] ; then
+        echo "firewall-cmd not installed."
+        exit 1
+    fi
+    FW4ADD="$FWC --direct --add-rule ipv4 filter OUTPUT"
+    # uses priority
+        FW4ADD0="$FW4ADD 0"
+        FW4ADD1="$FW4ADD 1"
+        FW4ADD9="$FW4ADD 9"
+    FW6ADD="$FWC --direct --add-rule ipv6 filter OUTPUT 9"
+
+    FW4FLUSH="$FWC --direct --remove-rules ipv4 filter OUTPUT"
+    FW6FLUSH="$FWC --direct --remove-rules ipv6 filter OUTPUT"
+
+else
+    echo "$FIREWALL is not supported."
+    exit 1
+fi
+
+# FUNCTIONS
+
+#Usage function
+
+usage(){
+    printf "%s\n" 'ksw - Automatic networking killswitch for VPNs' \
+    'Usage: ksw [on|off|daemon|dns-leak-fix|version|help]; or' \
+    'systemctl enable --now kswd.service'
+}
+
+# Switch functions.
+# Firewall rules adapted from Arch Wiki
+
+kswOff(){
+    $FW4FLUSH
+    $FW6FLUSH
+    sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    sysctl -w net.ipv6.conf.default.disable_ipv6=0
+}
+
+kswOn(){
+    # Too much work to figure out if rules are correct.
+    # Wipe all rules in runtime. 
+    kswOff
+    
+    # ipv4 rules
+    $FW4ADD0 -o lo -j ACCEPT
+    $FW4ADD0 -o tun+ -j ACCEPT
+    $FW4ADD1 -p $VPN_PROTO -m $VPN_PROTO --dport $VPN_PORT -j ACCEPT
+    $FW4ADD1 -d $LOCAL_NET -j ACCEPT
+    # Automate nameservers
+    awk '/nameserver/ { print $2 }' /etc/resolv.conf |
+    while read -r DNS; do
+        $FW4ADD1 -d $DNS -j ACCEPT
+    done
+    $FW4ADD9 -j REJECT --reject-with icmp-net-unreachable
+    
+    # disable ipv6
+    sysctl -w net.ipv6.conf.all.disable_ipv6=1
+    sysctl -w net.ipv6.conf.default.disable_ipv6=1
+    $FW6ADD -j DROP
+}
+
+# Daemon function 
+
+kswDaemon(){
+    # When daemon starts, check if VPN is active. If so, kswOn.
+    # The daemon should not turn kswOff when restarting.
+    primaryConType=$(dbus-send --system --print-reply \
+        --dest=org.freedesktop.NetworkManager \
+        /org/freedesktop/NetworkManager \
+        org.freedesktop.DBus.Properties.Get \
+        string:"org.freedesktop.NetworkManager" \
+        string:"PrimaryConnectionType" | \
+        grep variant | cut -d'"' -f2)
+    if [ "$primaryConType" == "vpn" ]; then
+        kswOn > /dev/null
+    fi
+
+    # dbus-monitor returns two values for VpnStateChanged: "state" and "reason".
+    # Each is on seperate line, with "state" first. They are 32bit int that 
+    # correspond to "NMVpnConnectionState" and "NMActiveConnectionStateReason"
+    # in the NetworkManager Dbus API documentation. 
+
+    # Example Output:
+    #   signal time=1550500981.708238 sender=:1.18 -> destination=(null 
+    #   destination) serial=55578 path=/org/freedesktop/NetworkManager/
+    #   ActiveConnection/128; interface=org.freedesktop.NetworkManager.
+    #   VPN.Connection; member=VpnStateChanged
+    #   uint32 5                  # This is "state"
+    #   uint32 1                  # This is "reason"
+
+    signalPart="state"
+
+    dbus-monitor --system \
+        "type='signal',\
+        interface='org.freedesktop.NetworkManager.VPN.Connection',\
+        member='VpnStateChanged'" | 
+    while read -r line; do
+        
+        # We only need $line if it is uint32 value
+        signalValue=$(echo $line | awk '/uint32/ { print $2 }')
+        if [[ -n "$signalValue" ]] ; then
+            
+            # Determine if "state" or "reason"
+            if [[ "$signalPart" == "state" ]] ; then
+                stateValue="$signalValue"
+                
+                # The state case. 7 is disconnected. 5 is connected.
+                case "$stateValue" in
+                    0 ) echo "The state of the VPN connection is unknown."
+                        ;;
+                    1 ) echo "The VPN connection is preparing to connect."
+                        ;;
+                    2 ) echo "The VPN connection needs authorization credentials."
+                        ;;
+                    3 ) echo "The VPN connection is being established."
+                        ;;
+                    4 ) echo "The VPN connection is getting an IP address."
+                        ;;
+                    5 ) echo "The VPN connection is active."
+                        ;;
+                    6 ) echo "The VPN connection failed."
+                        ;;
+                    7 ) echo "The VPN connection is disconnected."
+                        ;;
+                esac
+                signalPart="reason"
+                continue
+
+            elif [[ "$signalPart" == "reason" ]] ; then
+                reasonValue="$signalValue"
+                
+                # The reason case. 2 is user disconnected.
+                case "$reasonValue" in
+                    0 ) echo "The reason for the active connection state change is unknown."
+                        ;;
+                    1 ) echo "No reason was given for the active connection state change."
+                        ;;
+                    2 ) echo "The active connection changed state because the user disconnected it."
+                        ;;
+                    3 ) echo "The active connection changed state because the device it was using was disconnected."
+                        ;;
+                    4 ) echo "The service providing the VPN connection was stopped."
+                        ;;
+                    5 ) echo "The IP config of the active connection was invalid."
+                        ;;
+                    6 ) echo "The connection attempt to the VPN service timed out."
+                        ;;
+                    7 ) echo "A timeout occurred while starting the service providing the VPN connection."
+                        ;;
+                    8 ) echo "Starting the service providing the VPN connection failed."
+                        ;;
+                    9 ) echo "Necessary secrets for the connection were not provided."
+                        ;;
+                    10) echo "Authentication to the server failed."
+                        ;;
+                    11) echo "The connection was deleted from settings."
+                        ;;
+                    12) echo "Master connection of this connection failed to activate."
+                        ;;
+                    13) echo "Could not create the software device link."
+                        ;;
+                    14) echo "The device this connection depended on disappeared."
+                        ;;
+                esac
+                
+                # Now we have a whole signal statement
+                signalPart="whole"
+            fi
+           
+            # The Switch. 
+            if [[ "$signalPart" == "whole" ]] ; then
+
+                # Pull the "on switch"
+                if [[ "$stateValue" == "5" ]] ; then
+                    kswOn > /dev/null
+                    echo "VPN killswitch has been activated."
+                
+                # Pull the "off" switch 
+                elif [[ "$stateValue" == "7" ]] && [[ "$reasonValue" == "2" ]] ; then
+                    kswOff > /dev/null
+                    echo "VPN killswitch has been deactivated."
+                
+                # VPN disconnected by itself. Do nothing. (user has to run ksw off.)
+                elif [[ "$stateValue" == "7" ]] && [[ "$reasonValue" != "2" ]] ; then
+                    echo "VPN Disconnected, but conditions were not met to deactivate killswitch. \
+                        Reason: $reasonValue"
+
+                fi
+                echo 
+            fi
+            signalPart="state"
+            
+        fi
+    done
+}
+
+# DNS Leak prevention, the easy way
+# change DNS priority to -1 for all vpns
+dnsLeakFix(){
+    # find all vpn connections by UUID
+    vpnuuids=$(mktemp /tmp/vpnuuid.XXX)
+    trap "rm -f $vpnuuids; exit" 1 2 3 15
+    nmcli -t -f UUID,TYPE con show | \
+        awk 'BEGIN { FS = ":" } /vpn/ { print $1 }' > $vpnuuids
+    # use while read loop
+    while read -r UUID; do
+        nmcli con modify "$UUID" ipv4.dns-priority -1
+    done < $vpnuuids
+}
+
+# Take Args
+if [[ $# -eq 1 ]]; then
+    case $1 in
+        on )            kswOn > /dev/null
+                        exit
+                        ;;
+        off )           kswOff > /dev/null
+                        exit
+                        ;;
+        daemon )        kswDaemon
+                        exit 1
+                        ;;
+        dns-leak-fix )  dnsLeakFix
+                        exit
+                        ;;
+        version )       echo $VERSION
+                        exit
+                        ;;
+        help )          usage
+                        exit
+                        ;;
+        * )             usage
+                        exit 1
+                        ;;
+    esac
+else
+    usage
+    exit 1
+fi
+
+exit

@@ -1,0 +1,12 @@
+[Unit]
+Description=daemon for ksw network killswitch
+After=firewalld.service NetworkManager.service
+Requires=firewalld.service NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ksw daemon
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
