@@ -1,6 +1,6 @@
 # README.md
 
-## ksw 0.1.0 
+## ksw 0.1.1 
 
 ### Daemonizable VPN killswitch for NetworkManager with DNS and IPv6 leak protection written in Bash
 
@@ -101,6 +101,12 @@ In the case that you cannot reconnect, or choose not to, discontinue
 all sensitive internet activity (quit out of your browser and/or 
 torrent client), then run `sudo ksw off` to regain access to the 
 network. 
+
+###TODO:
+
+- Auto-reconnection.
+
+- Explore the use of kernel namespaces to strengthen security. 
 
 ### Issues:
 
