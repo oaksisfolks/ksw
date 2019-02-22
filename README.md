@@ -106,7 +106,7 @@ network.
 
 - Auto-reconnection.
 
-- Explore the use of kernel namespaces to strengthen security. 
+- Explore the use of network namespaces to strengthen security. 
 
 ### Issues:
 
