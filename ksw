@@ -1,6 +1,5 @@
 #!/bin/bash
 # ksw - Universal, daemonizable VPN killswitch for NetworkManager.
-VERSION=0.1.1
 
 # INIT
 
@@ -33,15 +32,12 @@ if [[ -v ConfVars ]] ; then
     exit 1
 fi
 
-# Find $LOCAL_NET from $PHYSICAL_INT & confirm
-# Try 5 times to prevent restarts at boot. (network-online.target is not perfect)
-for i in {1..5}; do
-    LOCAL_NET=$(ip route show | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
-    if [[ -n "$LOCAL_NET" ]] ; then
-        break
-    fi
-    sleep 2
-done
+# Wait for connection & Find $LOCAL_NET from $PHYSICAL_INT
+echo "Waiting for connection... "
+while [ -z "`ip route show to exact 0.0.0.0/0`" ]; do sleep 1; done
+echo "Done."
+
+LOCAL_NET=$(ip route show dev "$PHYSICAL_INT" | awk '/0\/24 / { print $1 }')
 
 if [[ -z "$LOCAL_NET" ]] ; then
     echo "PHYSICAL_INT set incorrectly."
