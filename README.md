@@ -102,7 +102,7 @@ all sensitive internet activity (quit out of your browser and/or
 torrent client), then run `sudo ksw off` to regain access to the 
 network. 
 
-###TODO:
+### TODO:
 
 - Auto-reconnection.
 
