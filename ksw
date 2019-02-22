@@ -1,6 +1,6 @@
 #!/bin/bash
 # ksw - Universal, daemonizable VPN killswitch for NetworkManager.
-VERSION=0.1.0
+VERSION=0.1.1
 # INIT
 
 # Ran as root?
@@ -33,9 +33,9 @@ if [[ -v ConfVars ]] ; then
 fi
 
 # Find $LOCAL_NET from $PHYSICAL_INT & confirm
-# Try 5 times to prevent restarts at boot.
+# Try 5 times to prevent restarts at boot. (network-online.target is not perfect)
 for i in {1..5}; do
-    LOCAL_NET=$(ip route | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
+    LOCAL_NET=$(ip route show | grep "0/24 dev $PHYSICAL_INT" | awk '{ print $1 }')
     if [[ -n "$LOCAL_NET" ]] ; then
         break
     fi
@@ -145,7 +145,7 @@ kswDaemon(){
         string:"org.freedesktop.NetworkManager" \
         string:"PrimaryConnectionType" | \
         grep variant | cut -d'"' -f2)
-    if [ "$primaryConType" == "vpn" ]; then
+    if [[ "$primaryConType" == "vpn" ]] ; then
         kswOn > /dev/null
     fi
 
