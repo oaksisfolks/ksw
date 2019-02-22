@@ -83,7 +83,7 @@ upload a new VPN configuration to NetworkManager.
 
 - `ksw on` - Turns on killswitch. (Not needed if ran as a service.)
 
-- `ksw off` - Turns off killswitch. (Needed if VPN disconnects w/o user input.)
+- `ksw off` - Turns off killswitch. 
 
 - `ksw daemon` - Runs ksw as a daemon (automatic mode). This is mainly for debugging. Enable `kswd` as a service instead.
 
@@ -95,9 +95,12 @@ upload a new VPN configuration to NetworkManager.
 
 Running as a daemon, `ksw` only requires user input if your VPN 
 connection is disconnected by something other than yourself. In the 
-case of a failed VPN connection, discontinue all sensitive internet
-activity (quit out of your browser and/or torrent client), then run 
-`sudo ksw off` to regain access to the network. 
+case of a failed VPN connection, you can reconnect to the VPN using 
+NetworkManager. `kswd.service` will continue as if nothing happened. 
+In the case that you cannot reconnect, or choose not to, discontinue 
+all sensitive internet activity (quit out of your browser and/or 
+torrent client), then run `sudo ksw off` to regain access to the 
+network. 
 
 ### Issues:
 
