@@ -1,5 +1,6 @@
 #!/bin/bash
 # ksw - Universal, daemonizable VPN killswitch for NetworkManager.
+VERSION=0.1.1
 
 # INIT
 

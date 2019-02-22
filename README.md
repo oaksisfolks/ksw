@@ -1,6 +1,6 @@
 # README.md
 
-## ksw 
+## ksw 0.1.1
 
 ### Daemonizable VPN killswitch for NetworkManager with DNS and IPv6 leak protection written in Bash
 
