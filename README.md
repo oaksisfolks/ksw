@@ -66,9 +66,7 @@ agnostic).
 
     - `kswd.service` --> `/usr/lib/systemd/system/kswd.service`
 
-5. `sudo systemctl daemon-reload`
-
-6. `sudo systemctl enable --now kswd.service`
+5. `sudo systemctl enable --now kswd.service`
 
 #### DNS Leak Fix
 
