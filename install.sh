@@ -22,4 +22,6 @@ chmod 644 /etc/ksw/ksw.conf
 cp ./kswd.service /usr/lib/systemd/system/kswd.service
 chmod 644 /usr/lib/systemd/system/kswd.service
 
+systemctl daemon-reload
+
 exit

@@ -180,13 +180,13 @@ kswDaemon(){
                 case "$stateValue" in
                     0 ) echo "The state of the VPN connection is unknown."
                         ;;
-                    1 ) echo "The VPN connection is preparing to connect."
+                    1 ) # "The VPN connection is preparing to connect."
                         ;;
                     2 ) echo "The VPN connection needs authorization credentials."
                         ;;
-                    3 ) echo "The VPN connection is being established."
+                    3 ) # "The VPN connection is being established."
                         ;;
-                    4 ) echo "The VPN connection is getting an IP address."
+                    4 ) # "The VPN connection is getting an IP address."
                         ;;
                     5 ) echo "The VPN connection is active."
                         ;;
@@ -203,9 +203,9 @@ kswDaemon(){
                 
                 # The reason case. 2 is user disconnected.
                 case "$reasonValue" in
-                    0 ) echo "The reason for the active connection state change is unknown."
+                    0 ) # "The reason for the active connection state change is unknown."
                         ;;
-                    1 ) echo "No reason was given for the active connection state change."
+                    1 ) # "No reason was given for the active connection state change."
                         ;;
                     2 ) echo "The active connection changed state because the user disconnected it."
                         ;;
