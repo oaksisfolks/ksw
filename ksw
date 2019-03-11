@@ -35,7 +35,7 @@ fi
 
 # Wait for connection & Find $LOCAL_NET from $PHYSICAL_INT
 echo "Waiting for connection... "
-while [ -z "`ip route show to exact 0.0.0.0/0`" ]; do sleep 1; done
+while [ -z "$(ip route show to exact 0.0.0.0/0)" ]; do sleep 1; done
 echo "Done."
 
 LOCAL_NET=$(ip route show dev "$PHYSICAL_INT" | awk '/0\/24 / { print $1 }')
@@ -116,12 +116,12 @@ kswOn(){
     # ipv4 rules
     $FW4ADD0 -o lo -j ACCEPT
     $FW4ADD0 -o tun+ -j ACCEPT
-    $FW4ADD1 -p $VPN_PROTO -m $VPN_PROTO --dport $VPN_PORT -j ACCEPT
-    $FW4ADD1 -d $LOCAL_NET -j ACCEPT
+    $FW4ADD1 -p "$VPN_PROTO" -m "$VPN_PROTO" --dport "$VPN_PORT" -j ACCEPT
+    $FW4ADD1 -d "$LOCAL_NET" -j ACCEPT
     # Automate nameservers
     awk '/nameserver/ { print $2 }' /etc/resolv.conf |
     while read -r DNS; do
-        $FW4ADD1 -d $DNS -j ACCEPT
+        $FW4ADD1 -d "$DNS" -j ACCEPT
     done
     $FW4ADD9 -j REJECT --reject-with icmp-net-unreachable
     
@@ -169,7 +169,7 @@ kswDaemon(){
     while read -r line; do
         
         # We only need $line if it is uint32 value
-        signalValue=$(echo $line | awk '/uint32/ { print $2 }')
+        signalValue=$(echo "$line" | awk '/uint32/ { print $2 }')
         if [[ -n "$signalValue" ]] ; then
             
             # Determine if "state" or "reason"
@@ -271,13 +271,20 @@ kswDaemon(){
 dnsLeakFix(){
     # find all vpn connections by UUID
     vpnuuids=$(mktemp /tmp/vpnuuid.XXX)
-    trap "rm -f $vpnuuids; exit" 1 2 3 15
+
+    cleanUp(){
+        rm -f "$vpnuuids"
+        exit
+    }
+
+    trap cleanUp 1 2 3 6 15
+    
     nmcli -t -f UUID,TYPE con show | \
-        awk 'BEGIN { FS = ":" } /vpn/ { print $1 }' > $vpnuuids
+        awk 'BEGIN { FS = ":" } /vpn/ { print $1 }' > "$vpnuuids"
     # use while read loop
     while read -r UUID; do
         nmcli con modify "$UUID" ipv4.dns-priority -1
-    done < $vpnuuids
+    done < "$vpnuuids"
 }
 
 # Take Args
