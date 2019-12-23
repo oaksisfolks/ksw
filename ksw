@@ -119,7 +119,7 @@ kswOn(){
     $FW4ADD1 -p "$VPN_PROTO" -m "$VPN_PROTO" --dport "$VPN_PORT" -j ACCEPT
     $FW4ADD1 -d "$LOCAL_NET" -j ACCEPT
     # Automate nameservers
-    awk '/nameserver/ { print $2 }' /etc/resolv.conf |
+    awk '/^#/ { next } /nameserver/ { print $2 }' /etc/resolv.conf |
     while read -r DNS; do
         $FW4ADD1 -d "$DNS" -j ACCEPT
     done
