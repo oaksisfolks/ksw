@@ -19,7 +19,7 @@ if ! [[ -r $CONFIG ]] ; then
     exit 1
 fi
 
-source $CONFIG
+source "$CONFIG"
 
 # Make sure necessary variables are set
 for var in FIREWALL PHYSICAL_INT VPN_PORT VPN_PROTO; do
@@ -69,7 +69,7 @@ if [[ "$FIREWALL" == "iptables" ]] ; then
 # firewalld
 elif [[ "$FIREWALL" == "firewalld" ]] ; then
     FWC="/usr/bin/firewall-cmd"
-    if ! [ -x $FWC ] ; then
+    if ! [ -x "$FWC" ] ; then
         echo "firewall-cmd not installed."
         exit 1
     fi
@@ -302,7 +302,7 @@ if [[ $# -eq 1 ]]; then
         dns-leak-fix )  dnsLeakFix
                         exit
                         ;;
-        version )       echo $VERSION
+        version )       echo "$VERSION"
                         exit
                         ;;
         help )          usage
