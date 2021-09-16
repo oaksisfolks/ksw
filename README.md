@@ -70,7 +70,7 @@ agnostic).
 
 #### DNS Leak Fix
 
-NetworkManager leaks DNS requests like a seive by default. To fix 
+NetworkManager leaks DNS requests like a sieve by default. To fix 
 this, each VPN profile needs to be modified so that 
 `ipv4.dns-priority=-1`. This can be automated by running 
 `sudo ksw dns-leak-fix`. This takes care of all currently 

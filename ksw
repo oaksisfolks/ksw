@@ -148,7 +148,7 @@ kswDaemon(){
     fi
 
     # dbus-monitor returns two values for VpnStateChanged: "state" and "reason".
-    # Each is on seperate line, with "state" first. They are 32bit int that 
+    # Each is on separate line, with "state" first. They are 32bit int that 
     # correspond to "NMVpnConnectionState" and "NMActiveConnectionStateReason"
     # in the NetworkManager Dbus API documentation. 
 
