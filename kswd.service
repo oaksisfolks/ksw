@@ -1,7 +1,7 @@
 [Unit]
 Description=daemon for ksw network killswitch
 After=network-online.target
-Requires=firewalld.service 
+Requires=firewalld.service
 Requires=NetworkManager.service
 Wants=network-online.target
 
