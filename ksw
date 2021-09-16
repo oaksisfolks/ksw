@@ -29,7 +29,7 @@ for var in FIREWALL PHYSICAL_INT VPN_PORT VPN_PROTO; do
     fi
 done
 
-if [[ -v ConfVars ]] ; then
+if [[ -v confVars ]] ; then
     exit 1
 fi
 
