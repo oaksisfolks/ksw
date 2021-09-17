@@ -6,8 +6,8 @@ VERSION=0.1.1
 
 # Ran as root?
 if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root." 
-   exit 1
+    echo "This script must be run as root."
+    exit 1
 fi
 
 # Config location.
@@ -19,7 +19,7 @@ if ! [[ -r $CONFIG ]] ; then
     exit 1
 fi
 
-source $CONFIG
+source "$CONFIG"
 
 # Make sure necessary variables are set
 for var in FIREWALL PHYSICAL_INT VPN_PORT VPN_PROTO; do
@@ -29,12 +29,12 @@ for var in FIREWALL PHYSICAL_INT VPN_PORT VPN_PROTO; do
     fi
 done
 
-if [[ -v ConfVars ]] ; then
+if [[ -v confVars ]] ; then
     exit 1
 fi
 
 # Wait for connection & Find $LOCAL_NET from $PHYSICAL_INT
-echo "Waiting for connection... "
+echo "Waiting for connection..."
 while [ -z "$(ip route show to exact 0.0.0.0/0)" ]; do sleep 1; done
 echo "Done."
 
@@ -69,7 +69,7 @@ if [[ "$FIREWALL" == "iptables" ]] ; then
 # firewalld
 elif [[ "$FIREWALL" == "firewalld" ]] ; then
     FWC="/usr/bin/firewall-cmd"
-    if ! [ -x $FWC ] ; then
+    if ! [ -x "$FWC" ] ; then
         echo "firewall-cmd not installed."
         exit 1
     fi
@@ -110,9 +110,9 @@ kswOff(){
 
 kswOn(){
     # Too much work to figure out if rules are correct.
-    # Wipe all rules in runtime. 
+    # Wipe all rules in runtime.
     kswOff
-    
+
     # ipv4 rules
     $FW4ADD0 -o lo -j ACCEPT
     $FW4ADD0 -o tun+ -j ACCEPT
@@ -124,14 +124,14 @@ kswOn(){
         $FW4ADD1 -d "$DNS" -j ACCEPT
     done
     $FW4ADD9 -j REJECT --reject-with icmp-net-unreachable
-    
+
     # disable ipv6
     sysctl -w net.ipv6.conf.all.disable_ipv6=1
     sysctl -w net.ipv6.conf.default.disable_ipv6=1
     $FW6ADD -j DROP
 }
 
-# Daemon function 
+# Daemon function
 
 kswDaemon(){
     # When daemon starts, check if VPN is active. If so, kswOn.
@@ -148,12 +148,12 @@ kswDaemon(){
     fi
 
     # dbus-monitor returns two values for VpnStateChanged: "state" and "reason".
-    # Each is on seperate line, with "state" first. They are 32bit int that 
+    # Each is on separate line, with "state" first. They are 32bit int that
     # correspond to "NMVpnConnectionState" and "NMActiveConnectionStateReason"
-    # in the NetworkManager Dbus API documentation. 
+    # in the NetworkManager Dbus API documentation.
 
     # Example Output:
-    #   signal time=1550500981.708238 sender=:1.18 -> destination=(null 
+    #   signal time=1550500981.708238 sender=:1.18 -> destination=(null
     #   destination) serial=55578 path=/org/freedesktop/NetworkManager/
     #   ActiveConnection/128; interface=org.freedesktop.NetworkManager.
     #   VPN.Connection; member=VpnStateChanged
@@ -165,17 +165,17 @@ kswDaemon(){
     dbus-monitor --system \
         "type='signal',\
         interface='org.freedesktop.NetworkManager.VPN.Connection',\
-        member='VpnStateChanged'" | 
+        member='VpnStateChanged'" |
     while read -r line; do
-        
+
         # We only need $line if it is uint32 value
         signalValue=$(echo "$line" | awk '/uint32/ { print $2 }')
         if [[ -n "$signalValue" ]] ; then
-            
+
             # Determine if "state" or "reason"
             if [[ "$signalPart" == "state" ]] ; then
                 stateValue="$signalValue"
-                
+
                 # The state case. 7 is disconnected. 5 is connected.
                 case "$stateValue" in
                     0 ) echo "The state of the VPN connection is unknown."
@@ -200,7 +200,7 @@ kswDaemon(){
 
             elif [[ "$signalPart" == "reason" ]] ; then
                 reasonValue="$signalValue"
-                
+
                 # The reason case. 2 is user disconnected.
                 case "$reasonValue" in
                     0 ) # "The reason for the active connection state change is unknown."
@@ -234,34 +234,34 @@ kswDaemon(){
                     14) echo "The device this connection depended on disappeared."
                         ;;
                 esac
-                
+
                 # Now we have a whole signal statement
                 signalPart="whole"
             fi
-           
-            # The Switch. 
+
+            # The Switch.
             if [[ "$signalPart" == "whole" ]] ; then
 
                 # Pull the "on switch"
                 if [[ "$stateValue" == "5" ]] ; then
                     kswOn > /dev/null
                     echo "VPN killswitch has been activated."
-                
-                # Pull the "off" switch 
+
+                # Pull the "off" switch
                 elif [[ "$stateValue" == "7" ]] && [[ "$reasonValue" == "2" ]] ; then
                     kswOff > /dev/null
                     echo "VPN killswitch has been deactivated."
-                
+
                 # VPN disconnected by itself. Do nothing. (user has to run ksw off.)
                 elif [[ "$stateValue" == "7" ]] && [[ "$reasonValue" != "2" ]] ; then
                     echo "VPN Disconnected, but conditions were not met to deactivate killswitch. \
                         Reason: $reasonValue"
 
                 fi
-                echo 
+                echo
             fi
             signalPart="state"
-            
+
         fi
     done
 }
@@ -278,7 +278,7 @@ dnsLeakFix(){
     }
 
     trap cleanUp 1 2 3 6 15
-    
+
     nmcli -t -f UUID,TYPE con show | \
         awk 'BEGIN { FS = ":" } /vpn/ { print $1 }' > "$vpnuuids"
     # use while read loop
@@ -302,7 +302,7 @@ if [[ $# -eq 1 ]]; then
         dns-leak-fix )  dnsLeakFix
                         exit
                         ;;
-        version )       echo $VERSION
+        version )       echo "$VERSION"
                         exit
                         ;;
         help )          usage
